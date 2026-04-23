@@ -1,12 +1,14 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import get_user_model
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    repeated_password = serializers.CharField(write_only=True)
+    confirmed_password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'repeated_password']
+        fields = ['username', 'password', 'confirmed_password', 'email']
         extra_kwargs = {
             'password': {
                 'write_only': True
@@ -16,7 +18,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             }
         }
 
-    def validate_repeated_password(self, value):
+    def validate_confirmed_password(self, value):
         password = self.initial_data.get('password')
         if password and value and password != value:
             raise serializers.ValidationError('Passwords do not match')
@@ -36,37 +38,28 @@ class RegistrationSerializer(serializers.ModelSerializer):
         return account
     
 
-
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from django.contrib.auth import get_user_model
-
-
 User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    email = serializers.EmailField()
+    username = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        if "username" in self.fields:
-            self.fields.pop("username")
-
     def validate(self, attrs):
-        email = attrs.get('email')
-        password = attrs.get('password')
+        username = attrs.get("username")
+        password = attrs.get("password")
 
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(username=username)
         except User.DoesNotExist:
-            raise serializers.ValidationError('Invalid email or password')
+            raise serializers.ValidationError("Ungültiger Benutzername oder ungültiges Passwort")
         
         if not user.check_password(password):
-            raise serializers.ValidationError('Invalid email or password')
+            raise serializers.ValidationError("Ungültiger Benutzername oder ungültiges Passwort")
         
         data = super().validate({
-            'username': user.username,
-            'password': password
+            "username": user.username, 
+            "password": password
         })
         return data
+    
+

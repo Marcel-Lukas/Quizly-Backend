@@ -2,7 +2,10 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .serializers import RegistrationSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from .serializers import RegistrationSerializer, CustomTokenObtainPairSerializer
+
 
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
@@ -14,91 +17,102 @@ class RegistrationView(APIView):
         if serializer.is_valid():
             saved_account = serializer.save()
             data = {
-                'username': saved_account.username,
-                'email': saved_account.email,
-                'user_id': saved_account.pk
+                'detail': 'User created successfully!',
             }
-            return Response(data)
+            return Response(data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
 
 
-from rest_framework.permissions import IsAuthenticated
-
-class HelloWorldView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response({"message": "Hello, World!"})
-    
-
-
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .serializers import CustomTokenObtainPairSerializer
 
 class CookieTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        refresh = serializer.validated_data['refresh']
-        access = serializer.validated_data['access']
+        refresh = serializer.validated_data["refresh"]
+        access = serializer.validated_data["access"]
 
-        response = Response({'message': 'Login successful'})
+        response = Response({"detail": "Login successfully",
+                             "user": {
+                                 "id": serializer.user.id,
+                                 "username": serializer.user.username,
+                                 "email": serializer.user.email
+                             }})
 
         response.set_cookie(
-            key='access_token',
+            key="access_token",
             value=str(access),
             httponly=True,
             secure=True,
-            samesite="Lax",
+            samesite="Lax"
         )
 
         response.set_cookie(
-            key='refresh_token',
+            key="refresh_token",
             value=str(refresh),
             httponly=True,
             secure=True,
-            samesite="Lax",
+            samesite="Lax"
         )
 
         return response
 
 
 
-class CookieRefreshView(TokenRefreshView):
-    def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get('refresh_token')
+class CookieTokenRefreshView(TokenRefreshView):
 
-        if refresh_token is None:
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get("refresh_token")
+
+        if not refresh_token:
             return Response(
-                {"detail": "Refresh token not found!"}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Refresh token not found!"},
+                status=status.HTTP_401_UNAUTHORIZED
             )
-        
-        serializer = self.get_serializer(data={'refresh': refresh_token})
+
+        serializer = self.get_serializer(data={"refresh": refresh_token})
 
         try:
             serializer.is_valid(raise_exception=True)
         except:
             return Response(
-                {"detail": "Invalid refresh token!"}, 
+                {"error": "Invalid refresh token!"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
-        
-        access_token = serializer.validated_data.get('access')
 
-        response = Response({'message': 'Token refreshed successfully'})
+        access_token = serializer.validated_data.get("access")
+
+        response = Response({
+            "detail": "Token refreshed",
+            "access": "new_access_token"
+        }, status=status.HTTP_200_OK)
+
         response.set_cookie(
-            key='access_token',
+            key="access_token",
             value=access_token,
             httponly=True,
             secure=True,
-            samesite="Lax",
+            samesite="Lax"
         )
 
         return response
+
+
+
+class LogoutView(APIView):
+
+    def post(self, request):
+        
+        response = Response(
+            {"detail": "Logged out successfully. All session tokens have been invalidated."}, status=status.HTTP_200_OK)
+
+        response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+
+        return response
+
+
