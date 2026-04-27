@@ -17,6 +17,8 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 class QuizSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True)
+    # 'url' accepts the video URL on write; 'video_url' exposes the same field on read
+    # to avoid overloading 'url' in the response payload.
     video_url = serializers.URLField(source="url", read_only=True)
     url = serializers.URLField(write_only=True, required=True)
 
@@ -90,6 +92,8 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
 
     def validate(self, attrs):
+        # DRF silently ignores unknown fields; explicitly reject them so clients
+        # receive a clear error instead of a silent no-op.
         allowed_fields = {"title", "description"}
         invalid_fields = set(self.initial_data.keys()) - allowed_fields
 

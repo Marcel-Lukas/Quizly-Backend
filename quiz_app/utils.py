@@ -12,6 +12,8 @@ from quiz_app.models import Question
 
 logger = logging.getLogger(__name__)
 
+GEMINI_MODEL = "gemini-3-flash-preview"
+
 # Gemini context limit guard: truncate transcript to avoid exceeding the model's token limit.
 MAX_TRANSCRIPT_LENGTH = 12000
 
@@ -95,7 +97,7 @@ def generate_quiz_with_gemini(transcript: str) -> dict:
 
     try:
         response = client.models.generate_content(
-            model="gemini-3-flash-preview", contents=prompt
+            model=GEMINI_MODEL, contents=prompt
         )
         raw_output = response.text.strip()
 
@@ -143,9 +145,5 @@ def generate_quiz_data_from_video(url: str, quiz_id: int = None) -> dict:
             return {"success": False, "error": f"Frage {i} unvollständig"}
 
     return {"success": True, "data": quiz_data}
-
-
-
-
 
 
