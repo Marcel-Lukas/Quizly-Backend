@@ -42,7 +42,7 @@ class QuizBaseTestCase(APITestCase):
             url="https://www.youtube.com/watch?v=example",
         )
         self.list_url = reverse("quiz-list-create")
-        self.detail_url = reverse("my-quizzes", args=[self.quiz.id])
+        self.detail_url = reverse("quiz-detail", args=[self.quiz.id])
 
 
 class QuizViewsPositiveTest(QuizBaseTestCase):
@@ -215,7 +215,7 @@ class QuizViewsNegativeTest(QuizBaseTestCase):
 
     def test_retrieve_nonexistent_quiz(self):
         self.client.force_authenticate(user=self.user)
-        url = reverse("my-quizzes", args=[99999])
+        url = reverse("quiz-detail", args=[99999])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 

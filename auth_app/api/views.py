@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .serializers import RegistrationSerializer, CustomTokenObtainPairSerializer
@@ -13,15 +14,11 @@ class RegistrationView(APIView):
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
 
-        data = {}
-        if serializer.is_valid():
-            saved_account = serializer.save()
-            data = {
-                'detail': 'User created successfully!',
-            }
-            return Response(data, status=status.HTTP_201_CREATED)
-        else:
+        if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.save()
+        return Response({'detail': 'User created successfully!'}, status=status.HTTP_201_CREATED)
 
 
 
@@ -78,7 +75,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 
         try:
             serializer.is_valid(raise_exception=True)
-        except:
+        except TokenError:
             return Response(
                 {"error": "Invalid refresh token!"},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -86,10 +83,7 @@ class CookieTokenRefreshView(TokenRefreshView):
 
         access_token = serializer.validated_data.get("access")
 
-        response = Response({
-            "detail": "Token refreshed",
-            "access": "new_access_token"
-        }, status=status.HTTP_200_OK)
+        response = Response({"detail": "Token refreshed"}, status=status.HTTP_200_OK)
 
         response.set_cookie(
             key="access_token",

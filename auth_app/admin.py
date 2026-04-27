@@ -5,12 +5,13 @@ from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 User = get_user_model()
 
 try:
-	admin.site.unregister(User)
+    admin.site.unregister(User)
 except admin.sites.NotRegistered:
-	pass
+    pass
+
 
 @admin.register(User)
 class CustomUserAdmin(DefaultUserAdmin):
-	list_display = ("id", "is_active", "username", "email", "is_staff")
-	search_fields = ("username", "email")
-	ordering = ("-id",)
+    list_display = ("id", "is_active", "username", "email", "is_staff")
+    search_fields = ("username", "email")
+    ordering = ("-id",)

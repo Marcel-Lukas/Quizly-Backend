@@ -1,10 +1,12 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+
 from quiz_app.api.serializers import QuizSerializer, QuizDetailSerializer
 from quiz_app.models import Quiz
 from quiz_app.permissions import IsOwner
 
-class QuizCreateView(generics.ListCreateAPIView):
+
+class QuizListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = QuizSerializer
 
@@ -12,9 +14,7 @@ class QuizCreateView(generics.ListCreateAPIView):
         return Quiz.objects.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
-        quiz = serializer.save(owner=self.request.user)
-
-        return quiz
+        serializer.save(owner=self.request.user)
 
 
 class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):

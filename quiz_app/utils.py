@@ -1,12 +1,16 @@
 import json
+import logging
 import os
 
 import whisper
 import yt_dlp
-from django.conf import settings
 from google import genai
 
+from django.conf import settings
+
 from quiz_app.models import Question
+
+logger = logging.getLogger(__name__)
 
 MAX_TRANSCRIPT_LENGTH = 12000
 
@@ -50,7 +54,7 @@ def run_whisper_transcription(audio_path: str) -> str:
         os.remove(audio_path)
         return result["text"]
     except Exception as e:
-        print(f"Whisper error: {e}")
+        logger.error("Whisper transcription failed: %s", e)
         return ""
 
 
@@ -100,48 +104,15 @@ def generate_quiz_with_gemini(transcript: str) -> dict:
             end = raw_output.rfind("}") + 1
             if start != -1 and end != -1:
                 return json.loads(raw_output[start:end])
-            else:
-                raise ValueError("Gemini output was not valid JSON.")
+            raise ValueError("Gemini output was not valid JSON.")
 
     except Exception as e:
-        print(f"Gemini error: {e}")
+        logger.error("Gemini generation failed: %s", e)
         return {
             "title": "Failed Generation",
             "description": str(e),
             "questions": [],
         }
-
-
-def generate_quiz_from_video(quiz):
-    result = download_audio_from_url(quiz.url, quiz_id=quiz.id)
-    if not result["success"]:
-        quiz.title = "Error downloading"
-        quiz.save()
-        return
-
-    audio_path = result["filepath"]
-
-    transcript = run_whisper_transcription(audio_path)
-    if not transcript or not transcript.strip():
-        quiz.title = "Error transcribing"
-        quiz.save()
-        return
-
-    quiz_data = generate_quiz_with_gemini(transcript)
-
-    quiz.title = quiz_data["title"]
-    quiz.description = quiz_data["description"]
-    quiz.save()
-
-    for q in quiz_data["questions"]:
-        Question.objects.create(
-            quiz=quiz,
-            question_title=q["question_title"],
-            question_options=q["question_options"],
-            answer=q["answer"],
-        )
-
-    return quiz
 
 
 def generate_quiz_data_from_video(url: str, quiz_id: int = None) -> dict:
@@ -169,8 +140,6 @@ def generate_quiz_data_from_video(url: str, quiz_id: int = None) -> dict:
             return {"success": False, "error": f"Frage {i} unvollständig"}
 
     return {"success": True, "data": quiz_data}
-
-
 
 
 

@@ -1,7 +1,10 @@
-from rest_framework import serializers
 from django.db import transaction
+from rest_framework import serializers
+
 from quiz_app.models import Quiz, Question
 from quiz_app.utils import generate_quiz_data_from_video
+
+QUIZ_FIELDS = ["id", "title", "description", "created_at", "updated_at", "video_url", "url", "questions"]
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -18,8 +21,7 @@ class QuizSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
-        fields = ["id", "title", "description", "created_at",
-                  "updated_at", "video_url", "url", "questions"]
+        fields = QUIZ_FIELDS
         read_only_fields = ["id", "title", "description", "created_at", "updated_at", "video_url", "questions"]
 
     def create(self, validated_data):
@@ -37,10 +39,14 @@ class QuizSerializer(serializers.ModelSerializer):
         try:
             result = generate_quiz_data_from_video(video_url)
         except Exception as exc:
-            raise serializers.ValidationError({"error": "Quiz-Generierung fehlgeschlagen", "details": str(exc)}) from exc
+            raise serializers.ValidationError(
+                {"error": "Quiz-Generierung fehlgeschlagen", "details": str(exc)}
+            ) from exc
 
         if not result.get("success"):
-            raise serializers.ValidationError({"error": "Quiz-Generierung fehlgeschlagen", "details": result.get("error")})
+            raise serializers.ValidationError(
+                {"error": "Quiz-Generierung fehlgeschlagen", "details": result.get("error")}
+            )
 
         quiz_data = result.get("data") or {}
         generated_questions = quiz_data.get("questions") or []
@@ -53,49 +59,43 @@ class QuizSerializer(serializers.ModelSerializer):
                 owner=owner,
             )
 
-            question_instances = []
-            for q in generated_questions:
-                if not isinstance(q, dict):
-                    continue
-
-                options = q.get("question_options") or []
-                if not isinstance(options, list):
-                    options = []
-
-                question_instances.append(
-                    Question(
-                        quiz=quiz,
-                        question_title=q.get("question_title", ""),
-                        question_options=options,
-                        answer=q.get("answer", ""),
-                    )
+            question_instances = [
+                Question(
+                    quiz=quiz,
+                    question_title=q.get("question_title", ""),
+                    question_options=q.get("question_options") if isinstance(q.get("question_options"), list) else [],
+                    answer=q.get("answer", ""),
                 )
+                for q in generated_questions
+                if isinstance(q, dict)
+            ]
 
             if question_instances:
                 Question.objects.bulk_create(question_instances)
 
         return quiz
-    
 
 
 class QuizDetailSerializer(serializers.ModelSerializer):
     questions = QuestionSerializer(many=True, read_only=True)
     video_url = serializers.URLField(source="url", read_only=True)
     url = serializers.URLField(write_only=True, required=True)
+
     class Meta:
         model = Quiz
-        fields = ["id", "title", "description", "created_at", "updated_at", "video_url", "url", "questions"]
+        fields = QUIZ_FIELDS
         read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
 
     def validate(self, attrs):
         allowed_fields = {"title", "description"}
-        input_fields = set(self.initial_data.keys())
-        invalid_fields = input_fields - allowed_fields
+        invalid_fields = set(self.initial_data.keys()) - allowed_fields
 
         if invalid_fields:
             raise serializers.ValidationError({
-                "error": f"Ungültige Felder: {', '.join(invalid_fields)}. "
-                         f"Erlaubt sind nur: {', '.join(sorted(allowed_fields))}."
+                "error": (
+                    f"Ungültige Felder: {', '.join(invalid_fields)}. "
+                    f"Erlaubt sind nur: {', '.join(sorted(allowed_fields))}."
+                )
             })
 
         return attrs
@@ -105,6 +105,4 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         instance.description = validated_data.get("description", instance.description)
         instance.save()
         return instance
-
-
 
