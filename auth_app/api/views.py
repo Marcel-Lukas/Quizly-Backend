@@ -9,9 +9,16 @@ from .serializers import RegistrationSerializer, CustomTokenObtainPairSerializer
 
 
 class RegistrationView(APIView):
+    """
+    API endpoint that allows new users to register.
+
+    Accessible without authentication. Delegates validation and
+    object creation to `RegistrationSerializer`.
+    """
     permission_classes = [AllowAny]
 
     def post(self, request):
+        """Validate the request data and create a new user account."""
         serializer = RegistrationSerializer(data=request.data)
 
         if not serializer.is_valid():
@@ -23,11 +30,20 @@ class RegistrationView(APIView):
 
 
 class CookieTokenObtainPairView(TokenObtainPairView):
+    """
+    JWT login endpoint that stores tokens in HttpOnly cookies.
+
+    Replaces the default JSON token response with two HttpOnly cookies
+    (`access_token` and `refresh_token`) to prevent JavaScript access
+    and reduce XSS exposure.
+    """
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-        # Tokens are issued as HttpOnly cookies instead of the response body
-        # to prevent JavaScript access and reduce XSS exposure.
+        """
+        Authenticate the user and issue access and refresh tokens as
+        HttpOnly cookies instead of returning them in the response body.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -62,9 +78,18 @@ class CookieTokenObtainPairView(TokenObtainPairView):
 
 
 class CookieTokenRefreshView(TokenRefreshView):
+    """
+    JWT token-refresh endpoint that reads the refresh token from a cookie.
+
+    Expects a valid `refresh_token` HttpOnly cookie set by
+    `CookieTokenObtainPairView` and issues a new `access_token` cookie.
+    """
 
     def post(self, request, *args, **kwargs):
-        # Read the refresh token from the cookie instead of the request body.
+        """
+        Read the refresh token from the cookie instead of the request body
+        and return a new access token as an HttpOnly cookie.
+        """
         refresh_token = request.COOKIES.get("refresh_token")
 
         if not refresh_token:
@@ -100,9 +125,15 @@ class CookieTokenRefreshView(TokenRefreshView):
 
 
 class LogoutView(APIView):
+    """
+    API endpoint that logs out the current user.
+
+    Clears both the `access_token` and `refresh_token` HttpOnly cookies,
+    effectively ending the session on the client side.
+    """
 
     def post(self, request):
-        
+        """Delete the authentication cookies to log the user out."""
         response = Response(
             {"detail": "Logged out successfully. All session tokens have been invalidated."}, status=status.HTTP_200_OK)
 

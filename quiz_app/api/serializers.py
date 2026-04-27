@@ -9,6 +9,12 @@ QUIZ_FIELDS = ["id", "title", "description", "created_at", "updated_at", "video_
 
 
 class QuestionSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for individual quiz questions.
+
+    All fields are read-only because questions are generated automatically
+    during quiz creation and must not be modified directly via the API.
+    """
     class Meta:
         model = Question
         fields = ["id", "question_title", "question_options", "answer"]
@@ -16,6 +22,15 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class QuizSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating and listing quizzes.
+
+    On write, accepts a `url` field pointing to a video from which quiz content
+    is generated automatically. On read, the same field is exposed as `video_url`
+    to avoid overloading `url` in the response payload.
+    Title, description, and questions are all generated server-side and are
+    therefore read-only.
+    """
     questions = QuestionSerializer(many=True, read_only=True)
     # 'url' accepts the video URL on write; 'video_url' exposes the same field on read
     # to avoid overloading 'url' in the response payload.
@@ -28,7 +43,14 @@ class QuizSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "title", "description", "created_at", "updated_at", "video_url", "questions"]
 
     def create(self, validated_data):
-        # Generate quiz content from the video before writing anything to the database.
+        """
+        Generate quiz content from the video URL and persist the result.
+
+        Quiz content is generated from the video before any database writes.
+        The quiz and all its questions are then saved in a single atomic
+        transaction to ensure consistency. Raises `ValidationError` if the
+        owner cannot be determined, the URL is missing, or generation fails.
+        """
         request = self.context.get('request')
         owner = validated_data.pop("owner", None)
         if owner is None:
@@ -82,6 +104,14 @@ class QuizSerializer(serializers.ModelSerializer):
 
 
 class QuizDetailSerializer(serializers.ModelSerializer):
+    """
+    Serializer for retrieving and updating an existing quiz.
+
+    Only `title` and `description` may be changed via PATCH/PUT requests.
+    All other fields, including questions and the video URL, are read-only.
+    Unknown fields in the request payload are explicitly rejected to give
+    clients a clear error instead of a silent no-op.
+    """
     questions = QuestionSerializer(many=True, read_only=True)
     video_url = serializers.URLField(source="url", read_only=True)
     url = serializers.URLField(write_only=True, required=True)
@@ -92,8 +122,12 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
 
     def validate(self, attrs):
-        # DRF silently ignores unknown fields; explicitly reject them so clients
-        # receive a clear error instead of a silent no-op.
+        """
+        Reject any fields that are not allowed for updates.
+
+        DRF silently ignores unknown fields; explicitly reject them so clients
+        receive a clear error instead of a silent no-op.
+        """
         allowed_fields = {"title", "description"}
         invalid_fields = set(self.initial_data.keys()) - allowed_fields
 
@@ -108,6 +142,7 @@ class QuizDetailSerializer(serializers.ModelSerializer):
         return attrs
 
     def update(self, instance, validated_data):
+        """Apply the allowed field changes and save the quiz instance."""
         instance.title = validated_data.get("title", instance.title)
         instance.description = validated_data.get("description", instance.description)
         instance.save()
