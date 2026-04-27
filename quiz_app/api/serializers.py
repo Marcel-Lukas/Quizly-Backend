@@ -78,7 +78,33 @@ class QuizSerializer(serializers.ModelSerializer):
     
 
 
+class QuizDetailSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)
+    video_url = serializers.URLField(source="url", read_only=True)
+    url = serializers.URLField(write_only=True, required=True)
+    class Meta:
+        model = Quiz
+        fields = ["id", "title", "description", "created_at", "updated_at", "video_url", "url", "questions"]
+        read_only_fields = ["id", "created_at", "updated_at", "video_url", "questions"]
 
+    def validate(self, attrs):
+        allowed_fields = {"title", "description"}
+        input_fields = set(self.initial_data.keys())
+        invalid_fields = input_fields - allowed_fields
+
+        if invalid_fields:
+            raise serializers.ValidationError({
+                "error": f"Ungültige Felder: {', '.join(invalid_fields)}. "
+                         f"Erlaubt sind nur: {', '.join(sorted(allowed_fields))}."
+            })
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        instance.title = validated_data.get("title", instance.title)
+        instance.description = validated_data.get("description", instance.description)
+        instance.save()
+        return instance
 
 
 
