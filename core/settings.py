@@ -163,7 +163,6 @@ YDL_BASE_OPTS = {
     "format": "bestaudio/best",
     "quiet": True,
     "noplaylist": True,
-    "js_runtimes": "node",
 }
 
 
