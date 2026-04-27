@@ -2,6 +2,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 class CookieJWTAuthentication(JWTAuthentication):
+    """Reads JWT from the 'access_token' cookie; falls back to the Authorization header."""
+
     def authenticate(self, request):
         access_token = request.COOKIES.get("access_token")
 

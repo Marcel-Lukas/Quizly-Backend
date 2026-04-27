@@ -4,6 +4,7 @@ from rest_framework import serializers
 from quiz_app.models import Quiz, Question
 from quiz_app.utils import generate_quiz_data_from_video
 
+# Shared between QuizSerializer and QuizDetailSerializer to keep field lists in sync.
 QUIZ_FIELDS = ["id", "title", "description", "created_at", "updated_at", "video_url", "url", "questions"]
 
 
@@ -25,6 +26,7 @@ class QuizSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "title", "description", "created_at", "updated_at", "video_url", "questions"]
 
     def create(self, validated_data):
+        # Generate quiz content from the video before writing anything to the database.
         request = self.context.get('request')
         owner = validated_data.pop("owner", None)
         if owner is None:
@@ -51,6 +53,7 @@ class QuizSerializer(serializers.ModelSerializer):
         quiz_data = result.get("data") or {}
         generated_questions = quiz_data.get("questions") or []
 
+        # Persist the quiz and all questions in one transaction to ensure consistency.
         with transaction.atomic():
             quiz = Quiz.objects.create(
                 title=(quiz_data.get("title") or "Wird generiert...")[:100],

@@ -26,7 +26,8 @@ class CookieTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-        
+        # Tokens are issued as HttpOnly cookies instead of the response body
+        # to prevent JavaScript access and reduce XSS exposure.
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -63,6 +64,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
 class CookieTokenRefreshView(TokenRefreshView):
 
     def post(self, request, *args, **kwargs):
+        # Read the refresh token from the cookie instead of the request body.
         refresh_token = request.COOKIES.get("refresh_token")
 
         if not refresh_token:

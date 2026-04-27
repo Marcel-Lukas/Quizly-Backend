@@ -38,6 +38,8 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        # Verify credentials manually to return a single, unified error message
+        # instead of the per-field errors the parent serializer produces by default.
         username = attrs.get("username")
         password = attrs.get("password")
 

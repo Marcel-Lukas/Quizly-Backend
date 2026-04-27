@@ -12,6 +12,7 @@ from quiz_app.models import Question
 
 logger = logging.getLogger(__name__)
 
+# Gemini context limit guard: truncate transcript to avoid exceeding the model's token limit.
 MAX_TRANSCRIPT_LENGTH = 12000
 
 
@@ -51,6 +52,7 @@ def run_whisper_transcription(audio_path: str) -> str:
     try:
         model = whisper.load_model("small")
         result = model.transcribe(audio_path, language="de")
+        # Remove the audio file immediately after transcription to free disk space.
         os.remove(audio_path)
         return result["text"]
     except Exception as e:
@@ -100,6 +102,7 @@ def generate_quiz_with_gemini(transcript: str) -> dict:
         try:
             return json.loads(raw_output)
         except json.JSONDecodeError:
+            # Gemini occasionally wraps output in markdown code blocks; extract the raw object.
             start = raw_output.find("{")
             end = raw_output.rfind("}") + 1
             if start != -1 and end != -1:
