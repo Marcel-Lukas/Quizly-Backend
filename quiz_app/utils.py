@@ -19,6 +19,17 @@ MAX_TRANSCRIPT_LENGTH = 12000
 
 
 def download_audio_from_url(url: str, quiz_id: int = None) -> dict:
+    """
+    Download audio from a given URL using yt-dlp.
+
+    Args:
+        url: The video/audio URL to download from.
+        quiz_id: Optional quiz ID used to name the output file.
+
+    Returns:
+        A dict with 'success' (bool), and on success 'filepath' and 'title',
+        or on failure an 'error' message.
+    """
     if not url:
         return {"success": False, "error": "No URL provided."}
 
@@ -49,6 +60,18 @@ def download_audio_from_url(url: str, quiz_id: int = None) -> dict:
 
 
 def run_whisper_transcription(audio_path: str) -> str:
+    """
+    Transcribe an audio file to text using OpenAI Whisper.
+
+    The audio file is deleted from disk immediately after transcription
+    to free up storage space.
+
+    Args:
+        audio_path: Absolute or relative path to the audio file.
+
+    Returns:
+        The transcribed text, or an empty string if transcription fails.
+    """
     audio_path = os.path.abspath(audio_path)
 
     try:
@@ -63,6 +86,20 @@ def run_whisper_transcription(audio_path: str) -> str:
 
 
 def generate_quiz_with_gemini(transcript: str) -> dict:
+    """
+    Generate a multiple-choice quiz from a transcript using the Gemini API.
+
+    Sends the transcript to Gemini with a structured prompt and parses the
+    JSON response into a quiz dict. Handles markdown-wrapped JSON responses
+    by extracting the raw JSON object if necessary.
+
+    Args:
+        transcript: The video transcript text to base the quiz on.
+
+    Returns:
+        A dict with 'title', 'description', and a 'questions' list, where
+        each question contains 'question_title', 'question_options', and 'answer'.
+    """
     if not transcript.strip():
         return {"title": "Fehler", "description": "Kein Transkript vorhanden", "questions": []}
 
@@ -121,6 +158,23 @@ def generate_quiz_with_gemini(transcript: str) -> dict:
 
 
 def generate_quiz_data_from_video(url: str, quiz_id: int = None) -> dict:
+    """
+    Orchestrate the full pipeline from video URL to validated quiz data.
+
+    Steps:
+        1. Download audio from the given URL.
+        2. Transcribe the audio with Whisper.
+        3. Generate quiz questions from the transcript via Gemini.
+        4. Validate the structure of the generated quiz.
+
+    Args:
+        url: The video URL to process.
+        quiz_id: Optional quiz ID forwarded to the download step for file naming.
+
+    Returns:
+        A dict with 'success' (bool) and either 'data' (the quiz dict) on
+        success or 'error' (str) on failure.
+    """
     result = download_audio_from_url(url, quiz_id=quiz_id)
     if not result.get("success"):
         return {"success": False, "error": result.get("error", "Download failed")}
